@@ -1,0 +1,554 @@
+#!/bin/bash
+# Check if a project name argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <project_name>"
+    echo "Example: $0 my-new-project"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+PROJECT_DIR="./$PROJECT_NAME" # Define the project directory relative to where the script is run
+
+if ! command -v uv &> /dev/null; then
+    echo "uv is not installed. Please install it first."
+    exit 1
+fi
+
+# if [[ ! "$PROJECT_NAME" =~ ^[a-z][a-z0-9-]*$ ]]; then
+#     echo "Project name must start with lowercase letter and contain only lowercase letters, numbers, and hyphens"
+#     exit 1
+# fi
+
+# Create the project directory if it doesn't exist
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Creating project directory: $PROJECT_DIR"
+    uv init "$PROJECT_DIR"
+else
+    echo "Project directory '$PROJECT_DIR' already exists. Scaffolding inside it."
+fi
+
+# Change into the project directory
+cd "$PROJECT_DIR" || { echo "Failed to change directory to $PROJECT_DIR. Exiting."; exit 1; }
+
+# Define the folder structure
+FOLDERS=(
+    "src"
+    "src/adapter" # Begin Adapter
+    "src/adapter/inbound"
+    "src/adapter/inbound/api"
+    "src/adapter/inbound/api/router"
+    "src/adapter/inbound/api/v1"
+    "src/adapter/inbound/api/validators"
+    "src/adapter/inbound/api/grpcserver"
+    "src/adapter/outbound"
+    "src/adapter/outbound/mongodb" # End Adapter
+    "src/application" # Begin Application
+    "src/application/mappers"
+    "src/application/usecases" # End Application
+    "src/domain" # Begin Domain
+    "src/domain/dtos"
+    "src/domain/entities"
+    "src/domain/services"
+    "src/domain/repositories" # End Domain
+    "src/helpers"
+    "src/infrastructure" # Begin Infrastructure
+    "src/infrastructure/communication"
+    "src/infrastructure/communication/grpc"
+    "src/infrastructure/config"
+    "src/infrastructure/injectors"
+    "src/infrastructure/logging"
+    "src/infrastructure/persistence" # End Infrastructure
+    "jenkins"
+)
+
+FILES_TO_CREATE=(
+    "src/helpers:helpers.py"
+    "src/infrastructure/injectors:db_injector.py"
+    "src/infrastructure/injectors:service_injector.py"
+    "src/infrastructure/injectors:handler_injector.py"
+)
+
+# Create directories
+for folder in "${FOLDERS[@]}"; do
+    mkdir -p "$folder"
+done
+
+cat <<EOF > "src/main.py"
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+import uvicorn
+import os
+import sys
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src.adapter.inbound.api.router.router import router
+from src.infrastructure.config.config import settings
+from src.infrastructure.injectors.provider import container
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("--- Starting up... ---")
+    
+    yield
+    print("--- Shutting down... ---")
+
+def create_app() -> FastAPI:
+    app_container = container
+
+    app = FastAPI(
+        title=settings.APP_NAME,
+        version="1.0.0",
+        lifespan=lifespan
+    )
+
+    app.container = app_container
+
+    app.include_router(router, prefix=settings.PREFIX)
+    
+    return app
+
+app = create_app()
+
+if __name__ == "__main__":
+    uvicorn.run("src.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/router/router.py"
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/health", tags=["Monitoring"])
+def health_check():
+    return {"status": "ok"}
+EOF
+
+cat << EOF > "src/infrastructure/config/config.py"
+from pydantic_settings import BaseSettings
+from typing import Optional, Dict, Any
+from pydantic import Field
+import os
+
+PROJECT_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+class Settings(BaseSettings):
+
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    PREFIX: str
+
+    APP_NAME: str
+
+    PORT: int = Field(default=3000, ge=1, le=65535)
+
+    HOST: str = Field(default="0.0.0.0", pattern=r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^localhost$|^[\w\.-]+$')
+
+    class Config:
+        env_file = "env.properties"
+        case_sensitive = True
+        extra = "allow"  
+
+settings = Settings()
+EOF
+
+cat << EOF > "src/infrastructure/logging/logging_config.py"
+import logging
+import logging.handlers
+import sys
+from pathlib import Path
+from src.infrastructure.config.config import settings
+
+def setup_logging():
+    root_logger = logging.getLogger()
+
+    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    root_logger.setLevel(log_level)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(log_level)
+    
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_dir / "app.log",
+        maxBytes=10*1024*1024,
+        backupCount=5
+    )
+    file_handler.setLevel(log_level)
+
+    formatter = logging.Formatter(settings.LOG_FORMAT)
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    if not root_logger.handlers:
+        root_logger.addHandler(console_handler)
+        root_logger.addHandler(file_handler)
+
+    print(f"Logging configured with level: {settings.LOG_LEVEL}")
+EOF
+
+cat << EOF > "src/infrastructure/injectors/provider.py"
+from dependency_injector import containers, providers
+
+from src.infrastructure.config.config import settings
+
+class Container(containers.DeclarativeContainer):
+
+    config = settings
+
+container = Container()
+EOF
+
+for item in "${FILES_TO_CREATE[@]}"; do
+    # Split the string into folder and filename
+    folder=$(echo "$item" | cut -d':' -f1)
+    file_name=$(echo "$item" | cut -d':' -f2)
+
+    file_path="$folder/$file_name"
+    
+    touch "$file_path"
+done
+
+ROOT_FOLDER_NAME=$(basename "$(pwd)")
+
+cat <<EOF > "env.properties"
+IMAGE_VERSION=1.0.0
+IMAGE_NAME=${ROOT_FOLDER_NAME}
+CONTAINER_NAME=${ROOT_FOLDER_NAME}
+NETWORK_NAME=${ROOT_FOLDER_NAME}-network
+CONTAINER_PORT=10000
+
+#FastAPI
+HOST=0.0.0.0
+PORT=3000
+DEBUG=true
+APP_NAME=${ROOT_FOLDER_NAME}
+APP_VERSION=1.0.0
+
+PREFIX=/${ROOT_FOLDER_NAME}/api/v1
+
+EOF
+
+cat <<EOF > "Dockerfile"
+FROM python:3.13-slim AS develop
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+COPY . /app
+
+WORKDIR /app
+
+RUN uv lock 
+
+RUN uv sync --frozen --no-cache
+
+ENV PYTHONPATH=/app
+
+CMD ["uv", "run", "src/main.py"]
+EOF
+
+cat <<EOF > "docker-compose.dev.yaml"
+version: '3.9'
+
+services:
+  serve:
+    container_name: \${CONTAINER_NAME}
+    image: \${IMAGE_NAME}-dev:\${IMAGE_VERSION}
+    env_file:
+      - ./env.properties
+    build:
+      context: .
+      target: develop
+      dockerfile: Dockerfile
+    ports:
+      - "\${CONTAINER_PORT}:3000"
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
+EOF
+
+cat <<EOF > "pyproject.toml"
+[project]
+name = "${ROOT_FOLDER_NAME}"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dependency-injector>=4.48.1",
+    "fastapi>=0.116.1",
+    "pydantic-settings>=2.10.1",
+    "python-dotenv>=1.1.1",
+    "uvicorn[standard]>=0.35.0",
+]
+EOF
+
+cat <<EOF > ".gitignore"
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+env/
+venv/
+.DS_Store
+logs/
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+dist/
+build/
+*.egg-info/
+EOF
+
+cat <<EOF > ".dockerignore"
+# Git
+.git
+.gitignore
+README.md
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Development files
+*.md
+run.sh
+jenkins/
+
+# Temporary files
+tmp/
+temp/
+
+# Node modules (if any)
+node_modules/
+EOF
+
+cat <<'EOF' > "README.md"
+# 🚀 FastAPI Clean Architecture Scaffold
+
+> A production-ready FastAPI project template following Clean Architecture principles with Hexagonal Architecture pattern.
+
+## ✨ Features
+
+- 🏗️ **Clean Architecture** - Domain-driven design with clear separation of concerns
+- 🔄 **Hexagonal Architecture** - Inbound/Outbound adapters pattern
+- 🐍 **Modern Python** - Python 3.13+ with async/await support
+- ⚡ **FastAPI** - High-performance web framework
+- 🐳 **Docker Ready** - Multi-stage Dockerfile with development setup
+- 📝 **Structured Logging** - File and console logging with rotation
+- ⚙️ **Configuration Management** - Environment-based settings
+- 💉 **Dependency Injection** - Clean dependency management
+- 🔍 **Health Checks** - Built-in monitoring endpoints
+
+## 🏛️ Architecture Overview
+
+```
+src/
+├── 📁 adapter/           # External interfaces
+│   ├── inbound/         # API controllers, routers
+│   └── outbound/        # Database, external services
+├── 📁 application/       # Use cases & business logic
+├── 📁 domain/           # Core business entities & rules
+├── 📁 infrastructure/   # Configuration, logging, DI
+└── 📁 helpers/          # Utility functions
+```
+
+## 🚀 Quick Start
+
+## 🐳 Docker Commands
+
+```bash
+# Development mode (with hot reload)
+./run.sh
+
+# Build without starting
+./run.sh build
+
+# Production mode
+./run.sh prod
+```
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check endpoint |
+| `/{project}/api/v1/` | * | Your API routes |
+
+## ⚙️ Configuration
+
+Key environment variables in `env.properties`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HOST` | 0.0.0.0 | Server host |
+| `PORT` | 8000 | Server port |
+| `LOG_LEVEL` | INFO | Logging level |
+| `APP_NAME` | project-name | Application name |
+
+## 🏗️ Development
+
+### Project Structure
+```
+├── 🐳 Dockerfile              # Multi-stage container setup
+├── 🔧 docker-compose.dev.yaml # Development environment
+├── ⚙️ env.properties          # Environment configuration
+├── 📋 pyproject.toml          # Python project metadata
+└── 📁 src/
+    ├── main.py               # Application entry point
+    ├── adapter/              # External interfaces
+    ├── application/          # Business logic
+    ├── domain/               # Core entities
+    └── infrastructure/       # Technical concerns
+```
+
+### Adding New Features
+
+1. **Domain Entity** → `src/domain/entities/`
+2. **Use Case** → `src/application/usecases/`
+3. **API Route** → `src/adapter/inbound/api/`
+4. **Repository** → `src/adapter/outbound/`
+
+## 📦 Dependencies
+
+- **FastAPI** - Web framework
+- **Uvicorn** - ASGI server
+- **Pydantic** - Data validation
+- **Dependency Injector** - DI container
+
+## 🤝 Contributing
+
+1. Follow Clean Architecture principles
+2. Keep domain logic pure (no external dependencies)
+3. Use dependency injection for external services
+4. Write tests for your use cases
+
+---
+EOF
+
+cat <<'EOF' > "run.sh"
+#!/bin/bash
+export $(grep -v '^#' env.properties | xargs)
+
+if [ "$1" = "prod" ]; then
+    # Start the service in production mode
+    docker-compose -f ./docker-compose.prod.yaml up --build
+elif [ "$1" = "nolive" ]; then
+    # Start the service in nolive mode
+    docker-compose -f ./docker-compose.nolive.yaml up --build
+else
+    # Start the service in development mode
+    docker-compose -f ./docker-compose.dev.yaml up $1 $2
+fi
+EOF
+
+chmod +x ./run.sh
+
+rm -f "main.py"
+
+echo "Folder and file structure created successfully!"
+
+
