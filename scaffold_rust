@@ -1,0 +1,898 @@
+#!/bin/bash
+# Improved Rust Project Scaffold with Hot Reload
+# Check if a project name argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <project_name>"
+    echo "Example: $0 my-new-project"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+PROJECT_DIR="./$PROJECT_NAME"
+
+# Create the project directory if it doesn't exist
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "Creating project directory: $PROJECT_DIR"
+    cargo new "$PROJECT_DIR"
+else
+    echo "Project directory '$PROJECT_DIR' already exists. Scaffolding inside it."
+fi
+
+# Change into the project directory
+cd "$PROJECT_DIR" || { echo "Failed to change directory to $PROJECT_DIR. Exiting."; exit 1; }
+
+# Define the folder structure (simplified)
+FOLDERS=(
+    "src/adapter" 
+    "src/adapter/inbound"
+    "src/adapter/inbound/api"
+    "src/adapter/inbound/api/controller"
+    "src/adapter/inbound/api/controller/router"
+    "src/adapter/inbound/api/controller/shared"
+    "src/adapter/inbound/api/controller/shared/handlers"
+    "src/adapter/inbound/api/controller/shared/dtos"
+    "src/adapter/inbound/api/controller/v1"
+    "src/adapter/inbound/api/controller/v1/handlers"
+    "src/adapter/inbound/api/controller/v1/dtos"
+    "src/adapter/outbound"
+    "src/application" 
+    "src/application/services"
+    "src/domain" 
+    "src/domain/entities"
+    "src/domain/repositories"
+    "src/infrastructure" 
+    "src/infrastructure/config"
+    "src/shared"
+    "src/shared/middleware"
+)
+
+# Create directories
+for folder in "${FOLDERS[@]}"; do
+    mkdir -p "$folder"
+done
+
+ROOT_FOLDER_NAME=$(basename "$(pwd)")
+
+# Create modern Cargo.toml with hot reload support
+cat <<EOF > "Cargo.toml"
+[package]
+name = "${ROOT_FOLDER_NAME}"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87.0"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+utoipa = { version = "4", features = ["axum_extras"] }
+utoipa-scalar = { version = "0.1", features = ["axum"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+EOF
+
+# Create main.rs with modern Axum
+cat <<EOF > "src/main.rs"
+use std::net::SocketAddr;
+use axum::Router;
+use tokio::signal;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+mod adapter;
+mod application;
+mod domain;
+mod infrastructure;
+mod shared;
+
+use adapter::inbound::api::controller::router;
+use adapter::inbound::api::controller::docs;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    tracing::info!("Starting {} service...", "${ROOT_FOLDER_NAME}");
+    
+    // Load configuration
+    let config = infrastructure::config::load_config();
+    tracing::info!("Environment: {}", config.environment);
+    tracing::info!("Log level: {}", config.log_level);
+    
+    // Create the main router
+    let app = create_app();
+
+    // Run our application
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    tracing::info!("Listening on http://{}", addr);
+    
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    Ok(())
+}
+
+fn create_app() -> Router {
+    Router::new()
+        .merge(router::router::routes())
+        .merge(docs::scalar_ui())
+        .layer(tower_http::cors::CorsLayer::permissive())
+        .layer(axum::middleware::from_fn(shared::middleware::log_requests))
+        .layer(TraceLayer::new_for_http())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Signal received, starting graceful shutdown");
+}
+EOF
+
+# Create lib.rs
+cat <<EOF > "src/lib.rs"
+pub mod adapter;
+pub mod application;
+pub mod domain;
+pub mod infrastructure;
+pub mod shared;
+EOF
+
+# Create simplified module structure
+cat <<EOF > "src/adapter/mod.rs"
+pub mod inbound;
+pub mod outbound;
+EOF
+
+cat <<EOF > "src/adapter/inbound/mod.rs"
+pub mod api;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/mod.rs"
+pub mod controller;
+EOF
+
+# Create controller with modern Axum syntax
+cat <<EOF > "src/adapter/inbound/api/controller/mod.rs"
+pub mod router;
+pub mod shared;
+pub mod v1;
+pub mod docs;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/router/mod.rs"
+pub mod router;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/router/router.rs"
+use axum::{routing::get, Router};
+
+use crate::adapter::inbound::api::controller::shared::handlers::{root, health};
+use crate::adapter::inbound::api::controller::v1;
+
+pub fn routes() -> Router {
+    Router::new()
+        .route("/", get(root::root))
+        .route("/health", get(health::health))
+        .nest("/api/v1", v1::router::routes())
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/mod.rs"
+pub mod handlers;
+pub mod dtos;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/handlers/mod.rs"
+pub mod root;
+pub mod health;
+
+// Re-export handlers
+pub use root::root;
+pub use health::health;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/handlers/health.rs"
+use axum::response::{IntoResponse, Json};
+use chrono::Utc;
+
+use crate::adapter::inbound::api::controller::shared::dtos::health_dto::HealthResponse;
+
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Get service health", body = HealthResponse)
+    )
+)]
+pub async fn health() -> impl IntoResponse {
+    let response = HealthResponse {
+        status: "healthy".to_string(),
+        service: "${ROOT_FOLDER_NAME}".to_string(),
+        timestamp: Utc::now(),
+        uptime: "running".to_string(),
+    };
+    Json(response)
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/handlers/root.rs"
+use axum::response::{IntoResponse, Json};
+
+use crate::adapter::inbound::api::controller::shared::dtos::root_dto::{
+    ApiV1Endpoints,
+    Endpoints,
+    RootResponse,
+};
+
+#[utoipa::path(
+    get,
+    path = "/",
+    responses(
+        (status = 200, description = "Get service info", body = RootResponse)
+    )
+)]
+
+pub async fn root() -> impl IntoResponse {
+    let response = RootResponse {
+        service: "${ROOT_FOLDER_NAME}".to_string(),
+        description: "Rust Clean-Architecture starter with Axum".to_string(),
+        endpoints: Endpoints {
+            health: "/health".to_string(),
+            api_v1: ApiV1Endpoints {
+                info: "/api/v1/info".to_string(),
+            },
+        },
+    };
+    Json(response)
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/dtos/root_dto.rs"
+use serde::Serialize;
+use utoipa::ToSchema;
+
+#[derive(Serialize, ToSchema)]
+pub struct ApiV1Endpoints {
+    #[schema(value_type = String, example = "/api/v1/info")]
+    pub info: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct Endpoints {
+    #[schema(value_type = String, example = "/health")]
+    pub health: String,
+    #[schema(value_type = ApiV1Endpoints)]
+    pub api_v1: ApiV1Endpoints,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct RootResponse {
+    #[schema(value_type = String, example = "service name")]
+    pub service: String,
+    #[schema(value_type = String, example = "Rust Clean-Architecture starter with Axum")]
+    pub description: String,
+    #[schema(value_type = Endpoints)]
+    pub endpoints: Endpoints,
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/dtos/health_dto.rs"
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+use utoipa::ToSchema;
+
+#[derive(Serialize, ToSchema)]
+pub struct HealthResponse {
+    #[schema(value_type = String, example = "healthy")]
+    pub status: String,
+    #[schema(value_type = String, example = "service name")]
+    pub service: String,
+    #[schema(value_type = String, format = DateTime, example = "2025-08-01T12:00:00Z")]
+    pub timestamp: DateTime<Utc>,
+    #[schema(value_type = String, example = "running")]
+    pub uptime: String,
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/shared/dtos/mod.rs"
+pub mod health_dto;
+pub mod root_dto;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/v1/mod.rs"
+pub mod router;
+pub mod handlers;
+pub mod dtos;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/v1/router.rs"
+use axum::{routing::get, Router};
+use crate::adapter::inbound::api::controller::v1::handlers;
+
+pub fn routes() -> Router {
+    Router::new()
+        .route("/info", get(handlers::info))
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/v1/handlers/info.rs"
+use axum::response::{IntoResponse, Json};
+
+use crate::adapter::inbound::api::controller::v1::dtos::info_dto::InfoResponse;
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/info",
+    responses(
+        (status = 200, description = "Get service info", body = InfoResponse)
+    )
+)]
+
+pub async fn info() -> impl IntoResponse {
+    let response = InfoResponse {
+        service: "${ROOT_FOLDER_NAME}".to_string(),
+        api_version: "1".to_string(),
+        status: "running".to_string(),
+        message: "Welcome to ${ROOT_FOLDER_NAME} API v1".to_string(),
+    };
+    Json(response)
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/v1/handlers/mod.rs"
+pub mod info;
+
+// Re-export handlers
+pub use info::info;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/v1/dtos/mod.rs"
+pub mod info_dto;
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/v1/dtos/info_dto.rs"
+use serde::Serialize;
+use utoipa::ToSchema;
+
+#[derive(Serialize, ToSchema)]
+pub struct InfoResponse {
+    #[schema(value_type = String, example = "service name")]
+    pub service: String,
+    #[schema(value_type = String, example = "v1")]
+    pub api_version: String,
+    #[schema(value_type = String, example = "running")]
+    pub status: String,
+    #[schema(value_type = String, example = "Welcome to service name API v1")]
+    pub message: String,
+}
+EOF
+
+cat <<EOF > "src/adapter/inbound/api/controller/docs.rs"
+use utoipa::OpenApi;
+use utoipa_scalar::{Scalar, Servable};
+
+use crate::adapter::inbound::api::controller::shared::dtos::health_dto;
+use crate::adapter::inbound::api::controller::shared::dtos::root_dto;
+use crate::adapter::inbound::api::controller::shared::handlers;
+use crate::adapter::inbound::api::controller::v1::dtos::info_dto;
+use crate::adapter::inbound::api::controller::v1::handlers as v1_handlers;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        handlers::root::root,
+        handlers::health::health,
+        v1_handlers::info::info,
+    ),
+    components(
+        schemas(
+            root_dto::RootResponse,
+            root_dto::Endpoints,
+            root_dto::ApiV1Endpoints,
+            health_dto::HealthResponse,
+            info_dto::InfoResponse
+        )
+    ),
+    tags(
+        (name = "${ROOT_FOLDER_NAME}", description = "${ROOT_FOLDER_NAME} service API")
+    )
+)]
+pub struct ApiDoc;
+
+pub fn scalar_ui() -> axum::Router {
+    axum::Router::new().merge(Scalar::with_url("/scalar", ApiDoc::openapi()))
+}
+EOF
+
+cat <<EOF > "src/adapter/outbound/mod.rs"
+// Outbound adapters for external services
+EOF
+
+cat <<EOF > "src/application/mod.rs"
+pub mod services;
+EOF
+
+cat <<EOF > "src/application/services/mod.rs"
+// Application services
+EOF
+
+cat <<EOF > "src/domain/mod.rs"
+pub mod entities;
+pub mod repositories;
+EOF
+
+cat <<EOF > "src/domain/entities/mod.rs"
+// Domain entities
+EOF
+
+cat <<EOF > "src/domain/repositories/mod.rs"
+// Repository traits
+EOF
+
+cat <<EOF > "src/infrastructure/mod.rs"
+pub mod config;
+EOF
+
+cat <<EOF > "src/infrastructure/config/mod.rs"
+use std::env;
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub port: u16,
+    pub environment: String,
+    pub log_level: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            port: 8080,
+            environment: "development".to_string(),
+            log_level: "info".to_string(),
+        }
+    }
+}
+
+impl Config {
+    pub fn from_env() -> Self {
+        Self {
+            port: env::var("PORT")
+                .unwrap_or_else(|_| "8080".to_string())
+                .parse()
+                .unwrap_or(8080),
+            environment: env::var("ENVIRONMENT")
+                .unwrap_or_else(|_| "development".to_string()),
+            log_level: env::var("RUST_LOG")
+                .unwrap_or_else(|_| "info".to_string()),
+        }
+    }
+}
+
+pub fn load_config() -> Config {
+    Config::from_env()
+}
+EOF
+
+cat <<EOF > "src/shared/mod.rs"
+// Shared utilities and types
+pub mod errors;
+pub mod middleware;
+EOF
+
+cat <<EOF > "src/shared/errors.rs"
+use axum::{
+    http::StatusCode,
+    response::{Json, Response},
+};
+use serde_json::json;
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub enum AppError {
+    InternalServerError,
+    BadRequest(String),
+    NotFound,
+}
+
+impl axum::response::IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            AppError::InternalServerError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string())
+            }
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::NotFound => (StatusCode::NOT_FOUND, "Not Found".to_string()),
+        };
+
+        let body = Json(json!({
+            "error": error_message,
+        }));
+
+        (status, body).into_response()
+    }
+}
+EOF
+
+cat <<EOF > "src/shared/middleware.rs"
+use axum::{
+    extract::Request,
+    middleware::Next,
+    response::Response,
+};
+use std::time::Instant;
+use tracing::{info, warn};
+
+pub async fn log_requests(request: Request, next: Next) -> Response {
+    let start = Instant::now();
+    let method = request.method().clone();
+    let uri = request.uri().clone();
+    
+    info!(
+        method = %method,
+        uri = %uri,
+        "Request started"
+    );
+    
+    let response = next.run(request).await;
+    
+    let duration = start.elapsed();
+    let status = response.status();
+    
+    if status.is_success() {
+        info!(
+            method = %method,
+            uri = %uri,
+            status = status.as_u16(),
+            duration_ms = duration.as_millis(),
+            "Request completed"
+        );
+    } else {
+        warn!(
+            method = %method,
+            uri = %uri,
+            status = status.as_u16(),
+            duration_ms = duration.as_millis(),
+            "Request failed"
+        );
+    }
+    
+    response
+}
+EOF
+
+# Create .gitignore
+cat <<EOF > ".gitignore"
+# Rust
+/target/
+**/*.rs.bk
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+EOF
+
+# Create .env for development
+cat <<EOF > ".env"
+CONTAINER_NAME=${ROOT_FOLDER_NAME}-container
+IMAGE_NAME=${ROOT_FOLDER_NAME}
+PORT=8080
+ENVIRONMENT=development
+RUST_LOG=info
+DEBUG=true
+tower_http=debug
+EOF
+
+echo "📦 Generating Cargo.lock..."
+cargo generate-lockfile
+
+# Create optimized Dockerfile
+cat <<EOF > "Dockerfile"
+FROM rust:1.87-alpine AS builder
+
+RUN apk add --no-cache musl-dev openssl-dev pkgconfig
+
+WORKDIR /app
+
+# Copy manifests first for better caching
+COPY Cargo.toml ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo check
+RUN cargo build --release
+RUN rm src/main.rs
+
+# Copy source and build
+COPY src ./src
+RUN touch src/main.rs
+RUN cargo build --release
+
+# Runtime stage
+FROM alpine:latest
+
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+
+COPY --from=builder /app/target/release/${ROOT_FOLDER_NAME} ./app
+
+EXPOSE 8080
+
+CMD ["/app/app"]
+EOF
+
+# Create docker-compose.yaml
+cat <<EOF > "docker-compose.dev.yaml"
+version: '3.8'
+
+services:
+  app:
+    container_name: "\${CONTAINER_NAME}"
+    image: "\${IMAGE_NAME}-dev"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "\${PORT}:8080"
+    env_file:
+      - ./.env
+
+EOF
+
+cat <<EOF > "docker-compose.prod.yaml"
+version: '3.8'
+
+services:
+  app:
+    container_name: "\${CONTAINER_NAME}"
+    image: "\${IMAGE_NAME}-prod"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "\${PORT}:8080"
+    env_file:
+      - ./.env
+EOF
+
+# Create Makefile for easy development
+cat <<EOF > "Makefile"
+.PHONY: dev build test clean docker-build docker-run
+
+# Development with hot reload
+dev:
+	@echo "🚀 Starting development server with hot reload..."
+	@cargo watch -x run
+
+# Build release
+build:
+	@echo "🔨 Building release..."
+	@cargo build --release
+
+# Run tests
+test:
+	@echo "🧪 Running tests..."
+	@cargo test
+
+# Clean build artifacts
+clean:
+	@echo "🧹 Cleaning..."
+	@cargo clean
+
+# Docker build
+docker-build:
+	@echo "🐳 Building Docker image..."
+	@docker build -t ${ROOT_FOLDER_NAME} .
+
+# Docker run
+docker-run: docker-build
+	@echo "🐳 Running Docker container..."
+	@docker run -p 8080:8080 ${ROOT_FOLDER_NAME}
+
+# Install cargo-watch for hot reload
+install-dev-tools:
+	@echo "📦 Installing development tools..."
+	@cargo install cargo-watch
+
+# Format code
+fmt:
+	@cargo fmt
+
+# Check code
+check:
+	@cargo check
+
+# Run with logs
+run-debug:
+	@RUST_LOG=debug cargo run
+EOF
+
+# Create run.sh (simplified)
+cat <<'EOF' > "run.sh"
+#!/bin/bash
+
+case "$1" in
+    "dev")
+        echo "🚀 Starting development server with hot reload..."
+        if ! command -v cargo-watch &> /dev/null; then
+            echo "Installing cargo-watch for hot reload..."
+            cargo install cargo-watch
+        fi
+        cargo watch -x run
+        ;;
+    "dev-docker")
+        echo "🐳 Starting with Docker..."
+        docker-compose -f docker-compose.dev.yaml up --build
+        ;;
+
+    "prod")
+        echo "🐳 Starting with Docker..."
+        docker-compose -f docker-compose.prod.yaml up --build
+        ;;
+    "build")
+        echo "🔨 Building release..."
+        cargo build --release
+        ;;
+    *)
+        echo "Usage: $0 {dev|prod|build}"
+        echo ""
+        echo "Commands:"
+        echo "  dev     - Start development server with hot reload"
+        echo "  prod    - Start with Docker"
+        echo "  build   - Build release binary"
+        echo ""
+        echo "Quick start:"
+        echo "  ./run.sh dev"
+        ;;
+esac
+EOF
+
+chmod +x "run.sh"
+
+# Create README.md
+cat <<EOF > "README.md"
+# ${ROOT_FOLDER_NAME}
+
+Modern Rust microservice with Clean Architecture.
+
+## 🚀 Quick Start
+
+\`\`\`bash
+# Development with hot reload
+./run.sh dev
+
+# Or using make
+make dev
+\`\`\`
+
+## 📡 Endpoints
+
+- \`GET /\` - Root endpoint
+- \`GET /health\` - Health check
+- \`GET /api/v1/info\` - API info endpoint
+- \`GET /scalar\` - API documentation (Scalar UI)
+
+## 📚 API Documentation
+
+API documentation is available via Scalar UI:
+- **Scalar UI**: \`http://localhost:8080/scalar\`
+- **OpenAPI JSON**: \`http://localhost:8080/api-docs/openapi.json\`
+
+## 🛠️ Development
+
+\`\`\`bash
+# Install dev tools
+make install-dev-tools
+
+# Run with hot reload
+make dev
+
+# Run tests
+make test
+
+# Build release
+make build
+
+# Format code
+make fmt
+\`\`\`
+
+## 🐳 Docker
+
+\`\`\`bash
+# Build and run with Docker
+./run.sh prod
+
+# Or manually
+make docker-build
+make docker-run
+\`\`\`
+
+## 📦 Project Structure
+
+\`\`\`
+src/
+├── adapter/          # Interface adapters
+│   ├── inbound/      # HTTP handlers
+│   └── outbound/     # External services
+├── application/      # Use cases
+├── domain/          # Business logic
+├── infrastructure/  # Configuration
+└── shared/          # Common utilities
+\`\`\`
+
+## 🔧 Configuration
+
+Environment variables:
+- \`PORT\` - Server port (default: 8080)
+- \`ENVIRONMENT\` - Environment (development/production)
+- \`RUST_LOG\` - Log level (info/debug/error)
+EOF
+
+echo "✅ Modern Rust project '${PROJECT_NAME}' created successfully!"
+echo ""
+echo "🚀 Quick Start:"
+echo "1. cd ${PROJECT_NAME}"
+echo "2. ./run.sh dev  (for hot reload development)"
+echo "3. make dev      (alternative using Makefile)"
+echo ""
+echo "📡 Test endpoints:"
+echo "   - http://localhost:8080/"
+echo "   - http://localhost:8080/health"
+echo "   - http://localhost:8080/api/v1/info"
+echo "   - http://localhost:8080/scalar (API documentation)"
+echo ""
+echo "🛠️  Development commands:"
+echo "   - ./run.sh dev   (hot reload)"
+echo "   - ./run.sh prod  (docker)"
+echo "   - make test      (run tests)"
+echo "   - make fmt       (format code)"
