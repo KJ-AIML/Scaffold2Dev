@@ -1,16 +1,16 @@
 # 📦 Scaffold2Dev
 
-**Scaffold2Dev** คือ **คลังรวมโครงสร้างโปรเจกต์ (scaffolds/boilerplates)** ที่ช่วยให้นักพัฒนาเริ่มต้นโครงการใหม่ได้ **ไวขึ้น ง่ายขึ้น และเป็นระบบมากขึ้น**
-ไม่ต้องเสียเวลาตั้งค่าใหม่ทุกครั้ง แค่เลือก scaffold ที่ตรงกับสแตกที่ต้องการ แล้วเริ่มพัฒนาต่อได้ทันที 🚀
+**Scaffold2Dev** is a **collection of project scaffolds/boilerplates** that helps developers kickstart new projects **faster, easier, and in a more structured way.**
+No more wasting time on repetitive setup — just pick the scaffold for your preferred stack and start coding right away 🚀
 
 ---
 
-## ✨ Key Idea
+## ✨ Key Ideas
 
-* **Fast Start** → ขึ้นโปรเจกต์ได้ทันที ไม่ต้องเซ็ตอัพนาน
-* **Multi-Stack** → รองรับหลายเทคโนโลยี เช่น Rust, Django, Python
-* **Best Practices** → วางโครงตามมาตรฐาน พร้อมใช้งานจริง
-* **Reusable** → ใช้ซ้ำได้ ปรับแต่งเพิ่มได้ง่าย
+* **Fast Start** → Spin up projects instantly without long setup
+* **Multi-Stack** → Supports multiple technologies such as Rust, Django, Python
+* **Best Practices** → Pre-configured with standard, production-ready structures
+* **Reusable** → Easy to reuse and customize for different projects
 
 ---
 
