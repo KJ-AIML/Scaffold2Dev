@@ -1,7 +1,30 @@
+<div align="center">
+
 # 📦 Scaffold2Dev
+**Modern CLI Tool & Project Scaffolds Collection**
+
+*Revolutionizing Project Setup with Clean Architecture & Best Practices*
+
+[![npm version](https://img.shields.io/badge/npm-v1.0.0+-CB3837?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/scaffold2dev-cli-toolkit)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.80+-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Axum](https://img.shields.io/badge/Axum-Latest-FF6B35?style=for-the-badge&logo=rust&logoColor=white)](https://github.com/tokio-rs/axum)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/KJ-AIML/Scaffold2Dev?style=for-the-badge&logo=github)](https://github.com/KJ-AIML/Scaffold2Dev)
+
+[🎯 Overview](#-key-ideas) • [🚀 Quick Start](#-quick-start) • [🛠️ Scaffolds](#️-available-scaffolds) • [💡 Installation](#-installation--usage) • [🚦 Getting Started](#-getting-started) • [🤝 Contributing](#-contributing)
+
+</div>
+
+---
 
 **Scaffold2Dev** is a **powerful CLI tool and collection of project scaffolds/boilerplates** that helps developers kickstart new projects **faster, easier, and in a more structured way.**
-No more wasting time on repetitive setup — just clone the repository, install locally, and start coding right away 🚀
+
+No more wasting time on repetitive setup — just install via npm and start coding right away! 🚀
+
+> 💡 **New**: Now available on npm! Install globally with `npm install -g scaffold2dev-cli-toolkit`
 
 ---
 
@@ -104,28 +127,16 @@ your-project/
 
 #### 🛠️ Quick Start
 
-**Using CLI (Recommended):**
+**🚀 Quick Start:**
 ```bash
-# Clone and setup (first time only)
-git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-cd Scaffold2Dev/cli
-pnpm install
-
-# Run the interactive CLI
-node script.js
-# Select Rust → Clean Architecture + Axum
-```
-
-**Direct Usage:**
-```bash
-# Make the scaffold executable
-chmod +x scaffold/rust/scaffold_rs_clean_axum
+# Install CLI globally
+npm install -g scaffold2dev-cli-toolkit
 
 # Create new project
-./scaffold/rust/scaffold_rs_clean_axum my-rust-api
-
-# Navigate to project
-cd my-rust-api
+scaffold2dev-cli
+# or use short alias
+s2d
+# Select: Rust → Clean Architecture + Axum
 ```
 
 2. **Run development server:**
@@ -218,31 +229,16 @@ your-project/
 
 #### 🛠️ Quick Start
 
-**Using CLI (Recommended):**
+**🚀 Quick Start:**
 ```bash
-# Clone and setup (first time only)
-git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-cd Scaffold2Dev/cli
-pnpm install
-
-# Run the interactive CLI
-node script.js
-# Select Python → Clean Architecture + FastAPI
-```
-
-**Direct Usage:**
-```bash
-# Install UV package manager (if not installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Make the scaffold executable
-chmod +x scaffold/python/scaffold_py_clean_fastapi
+# Install CLI globally
+npm install -g scaffold2dev-cli-toolkit
 
 # Create new project
-./scaffold/python/scaffold_py_clean_fastapi my-python-api
-
-# Navigate to project
-cd my-python-api
+scaffold2dev-cli
+# or use short alias
+s2d
+# Select: Python → Clean Architecture + FastAPI
 ```
 
 3. **Install dependencies:**
@@ -311,28 +307,16 @@ PREFIX=/your-project/api/v1
 
 ##### 🛠️ Quick Start
 
-**Using CLI (Recommended):**
+**🚀 Quick Start:**
 ```bash
-# Clone and setup (first time only)
-git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-cd Scaffold2Dev/cli
-pnpm install
-
-# Run the interactive CLI
-node script.js
-# Select Python → Agentic AI System
-```
-
-**Direct Usage:**
-```bash
-# Make the scaffold executable
-chmod +x scaffold/python/scaffold_py_agentic
+# Install CLI globally
+npm install -g scaffold2dev-cli-toolkit
 
 # Create new project
-./scaffold/python/scaffold_py_agentic my-agentic-system
-
-# Navigate to project
-cd my-agentic-system
+scaffold2dev-cli
+# or use short alias
+s2d
+# Select: Python → Agentic AI System
 ```
 
 #### Hybrid Agentic + Clean Architecture (`scaffold_py_hybrid_agentic_clean`)
@@ -341,78 +325,46 @@ cd my-agentic-system
 
 ##### 🛠️ Quick Start
 
-**Using CLI (Recommended):**
+**🚀 Quick Start:**
 ```bash
-# Clone and setup (first time only)
-git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-cd Scaffold2Dev/cli
-pnpm install
-
-# Run the interactive CLI
-node script.js
-# Select Python → Hybrid Agentic + Clean
-```
-
-**Direct Usage:**
-```bash
-# Make the scaffold executable
-chmod +x scaffold/python/scaffold_py_hybrid_agentic_clean
+# Install CLI globally
+npm install -g scaffold2dev-cli-toolkit
 
 # Create new project
-./scaffold/python/scaffold_py_hybrid_agentic_clean my-hybrid-system
-
-# Navigate to project
-cd my-hybrid-system
+scaffold2dev-cli
+# or use short alias
+s2d
+# Select: Python → Hybrid Agentic + Clean
 ```
 
 ---
 
 ## 🚦 Getting Started
 
-### Using the CLI Tool (Recommended)
+### 🎯 3-Step Quick Start
 
-1. **Clone and setup the repository:**
+1. **📦 Install the CLI:**
    ```bash
-   git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-   cd Scaffold2Dev/cli
-   pnpm install
+   npm install -g scaffold2dev-cli-toolkit
    ```
 
-2. **Run the interactive CLI:**
+2. **🚀 Create your project:**
    ```bash
-   node script.js
-   # or use npm script
-   npm run cli
+   scaffold2dev-cli
+   # or use short alias: s2d
    ```
 
-3. **Optional - Install globally for system-wide access:**
-   ```bash
-   pnpm install -g .
-   # Then use anywhere with:
-   scaffold2dev
-   # or short alias
-   s2d
-   ```
+3. **✨ Follow the interactive prompts** to select your stack and start coding!
 
-4. **Follow the prompts** to select your preferred stack and configuration
-5. **Start coding** with best practices already in place!
+### 🔧 What You Get
 
-### Using Direct Scaffold Scripts
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-   cd Scaffold2Dev
-   ```
-
-2. **Choose your scaffold** from the `scaffold/` directory
-3. **Make it executable and run:**
-   ```bash
-   chmod +x scaffold/[language]/[scaffold-name]
-   ./scaffold/[language]/[scaffold-name] your-project-name
-   ```
-4. **Follow the scaffold-specific README** for detailed setup
-5. **Start coding** with clean architecture patterns!
+- **🏗️ Clean Architecture** - Domain-driven design patterns
+- **📚 Best Practices** - Production-ready project structure  
+- **🚀 Fast Setup** - No more boilerplate configuration
+- **🔄 Hot Reload** - Development server with auto-restart
+- **📖 Documentation** - Auto-generated API docs
+- **🐳 Docker Ready** - Containerization setup included
+- **🧪 Testing Setup** - Unit and integration test structure
 
 ## 📋 Available Templates Summary
 
@@ -423,84 +375,79 @@ cd my-hybrid-system
 | 🐍 Python | Agentic AI | Multi-agent system with cognitive loops | ✅ Available |
 | 🐍 Python | Hybrid Agentic + Clean | Enterprise Agentic AI with Clean Architecture | ✅ Available |
 
-## 💡 Installation Methods
+## 💡 Installation & Usage
 
-### Method 1: NPM Installation (Recommended)
+### 🚀 Quick Install (Recommended)
 ```bash
-# Install from npm registry
+# Install globally via npm
 npm install -g scaffold2dev-cli-toolkit
 
-# Use anywhere
+# Start creating projects
 scaffold2dev-cli
-# or short alias
+# or use short alias
 s2d
 ```
 
-### Method 2: Local Development
+### 🛠️ Development Setup
 ```bash
-# Clone the repository
+# For contributors and local development
 git clone https://github.com/KJ-AIML/Scaffold2Dev.git
 cd Scaffold2Dev/cli
-
-# Install dependencies
 pnpm install
 
-# Run CLI
+# Run locally
 node script.js
 ```
 
-### Method 3: Global Installation from Source
+### 📦 Alternative Package Managers
 ```bash
-# After cloning and installing dependencies
-cd Scaffold2Dev/cli
-pnpm install -g .
+# Using yarn
+yarn global add scaffold2dev-cli-toolkit
 
-# Use anywhere
-scaffold2dev
-# or short alias
-s2d
-```
-
-### Method 4: Direct Scaffold Usage
-```bash
-# Clone repository
-git clone https://github.com/KJ-AIML/Scaffold2Dev.git
-cd Scaffold2Dev
-
-# Make scaffold executable and run
-chmod +x scaffold/[language]/scaffold_[template]
-./scaffold/[language]/scaffold_[template] your-project-name
+# Using pnpm
+pnpm add -g scaffold2dev-cli-toolkit
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Feel free to:
-- Add new scaffolds for different tech stacks
-- Improve existing scaffolds and CLI tool
-- Update documentation
-- Report issues or suggest features
-- Enhance the interactive CLI experience
+[![Contributors Welcome](https://img.shields.io/badge/contributors-welcome-brightgreen.svg?style=flat)](https://github.com/KJ-AIML/Scaffold2Dev/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](https://github.com/KJ-AIML/Scaffold2Dev/pulls)
 
-### Development Setup
+We welcome contributions! Here's how you can help:
+
+### 🎯 Ways to Contribute
+- **🏗️ Add new scaffolds** for different tech stacks
+- **⚡ Improve existing scaffolds** and CLI tool
+- **📝 Update documentation** and examples
+- **🐛 Report issues** or suggest features
+- **✨ Enhance the interactive CLI** experience
+
+### 🛠️ Development Setup
 ```bash
-# Fork and clone the repository
-git clone https://github.com/KJ-AIML/Scaffold2Dev.git
+# 1. Fork and clone the repository
+git clone https://github.com/YOUR_USERNAME/Scaffold2Dev.git
 cd Scaffold2Dev
 
-# Install CLI dependencies
+# 2. Install CLI dependencies
 cd cli
 pnpm install
 
-# Test your changes
+# 3. Test your changes
 node script.js
 ```
 
-### Adding New Scaffolds
-1. Create your scaffold script in `scaffold/[language]/`
-2. Make it executable: `chmod +x scaffold/[language]/scaffold_your_template`
-3. Add it to the CLI options in `cli/script.js`
-4. Update this README with documentation
-5. Test thoroughly and submit a PR
+### 📋 Adding New Scaffolds
+1. **Create** your scaffold in `cli/scaffold/[language]/`
+2. **Update** CLI options in `cli/script.js`
+3. **Document** your scaffold in this README
+4. **Test** thoroughly with different project names
+5. **Submit** a PR with clear description
+
+### 🔗 Useful Links
+- [📋 Issues](https://github.com/KJ-AIML/Scaffold2Dev/issues) - Report bugs or request features
+- [🔄 Pull Requests](https://github.com/KJ-AIML/Scaffold2Dev/pulls) - Submit your contributions
+- [📖 Wiki](https://github.com/KJ-AIML/Scaffold2Dev/wiki) - Detailed documentation
+- [💬 Discussions](https://github.com/KJ-AIML/Scaffold2Dev/discussions) - Community chat
 
 ## 📄 License
 
