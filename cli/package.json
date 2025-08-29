@@ -1,0 +1,45 @@
+{
+  "name": "scaffold2dev-cli-toolkit",
+  "version": "1.0.1",
+  "description": "A CLI tool for scaffolding development projects",
+  "type": "module",
+  "bin": {
+    "scaffold2dev": "script.js",
+    "s2d": "script.js"
+  },
+  "scripts": {
+    "cli": "node script.js"
+  },
+  "keywords": [
+    "cli",
+    "scaffold",
+    "development",
+    "rust",
+    "python",
+    "generator",
+    "boilerplate"
+  ],
+  "author": "KJ-AIML <kongphop.ct.ja.sc@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Scaffold2Dev/Scaffold2Dev.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/Scaffold2Dev/Scaffold2Dev#readme",
+  "bugs": {
+    "url": "https://github.com/Scaffold2Dev/Scaffold2Dev/issues"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "picocolors": "^1.0.0",
+    "pkg": "^5.8.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "script.js",
+    "../scaffold"
+  ]
+}
